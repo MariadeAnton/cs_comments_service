@@ -27,16 +27,35 @@ post "#{APIPREFIX}/comments/:comment_id" do |comment_id|
   sub_comment.anonymous_to_peers = bool_anonymous_to_peers || false
   sub_comment.author = user
   sub_comment.comment_thread = comment.comment_thread
+  sub_comment.children_count = 0
   sub_comment.save
   if sub_comment.errors.any?
     error 400, sub_comment.errors.full_messages.to_json
   else
-    user.subscribe(comment.comment_thread) if bool_auto_subscribe
-    sub_comment.to_hash.to_json
+    comment.set :children_count, comment.children_count + 1
+    if comment.errors.any?
+      error 400, comment.errors.full_messages.to_json
+    else
+      user.subscribe(comment.comment_thread) if bool_auto_subscribe
+      sub_comment.to_hash.to_json
+    end
   end
 end
 
 delete "#{APIPREFIX}/comments/:comment_id" do |comment_id|
+  parent_id = comment.parent_id
   comment.destroy
+  unless parent_id.nil?
+    begin
+      parent_comment = Comment.find(parent_id)
+      if parent_comment.children_count.nil?
+        set_comment_children_count(parent_comment)
+      else
+        parent_comment.set :children_count, parent_comment.children_count - 1
+      end
+    rescue Mongoid::Errors::DocumentNotFound
+      pass
+    end
+  end
   comment.to_hash.to_json
 end

@@ -17,6 +17,16 @@ helpers do
 
   def comment
     @comment ||= Comment.find(params[:comment_id])
+    set_comment_children_count(@comment)
+  end
+
+  def set_comment_children_count(comment)
+    if comment.children_count.nil?
+      child_comments_count = Comment.where({"parent_id" => comment.id}).count()
+      comment.set :children_count, child_comments_count
+      comment.children_count = child_comments_count
+    end
+    comment
   end
 
   def source

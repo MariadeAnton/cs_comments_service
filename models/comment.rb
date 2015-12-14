@@ -15,6 +15,7 @@ class Comment < Content
   field :anonymous, type: Boolean, default: false
   field :anonymous_to_peers, type: Boolean, default: false
   field :at_position_list, type: Array, default: []
+  field :children_count, type: Integer
 
   index({author_id: 1, course_id: 1})
   index({_type: 1, comment_thread_id: 1, author_id: 1, updated_at: 1})
@@ -108,6 +109,7 @@ class Comment < Content
                  .merge("votes" => votes.slice(*%w[count up_count down_count point]))
                  .merge("abuse_flaggers" => abuse_flaggers)
                  .merge("type" => "comment")
+                 .merge("children_count" => children_count)
     end
   end
   

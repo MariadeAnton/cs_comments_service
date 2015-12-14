@@ -26,6 +26,7 @@ describe "app" do
         retrieved["votes"]["point"].should == comment.votes_point
         retrieved["depth"].should == comment.depth
         retrieved["parent_id"].should == comment.parent_ids[-1]
+        retrieved["children_count"].should == comment.children.length
       end
       it "retrieve information of a single comment with its sub comments" do
         comment = Comment.first
@@ -39,6 +40,7 @@ describe "app" do
         retrieved["children"].length.should == comment.children.length
         retrieved["children"].select{|c| c["body"] == comment.children.first.body}.first.should_not be_nil
         retrieved["children"].each{|c| c["parent_id"].should == comment.id.to_s}
+        retrieved["children_count"].should == comment.children.length
       end
       it "returns 400 when the comment does not exist" do
         get "/api/v1/comments/does_not_exist"
@@ -109,6 +111,15 @@ describe "app" do
         comment.reload
         comment.body.should == original_body
       end
+      it "tests child comments count in retrieved data for comment update" do
+        comment = Comment.first
+        put "/api/v1/comments/#{comment.id}", body: "new body"
+        last_response.should be_ok
+        retrieved = parse last_response.body
+        comment.reload
+        comment.body.should == "new body"
+        retrieved["children_count"].should == comment.children.length
+      end
 
       def test_unicode_data(text)
         comment = Comment.first
@@ -125,11 +136,13 @@ describe "app" do
         user = User.first
         post "/api/v1/comments/#{comment["id"]}", body: "new comment", course_id: "1", user_id: User.first.id
         last_response.should be_ok
+        retrieved = parse last_response.body
         changed_comment = Comment.find(comment["id"]).to_hash(recursive: true)
         changed_comment["children"].length.should == comment["children"].length + 1
         subcomment = changed_comment["children"].select{|c| c["body"] == "new comment"}.first
         subcomment.should_not be_nil
         subcomment["user_id"].should == user.id
+        retrieved["children_count"].should == 0
       end
       it "returns 400 when the comment does not exist" do
         post "/api/v1/comments/does_not_exist", body: "new comment", course_id: "1", user_id: User.first.id
