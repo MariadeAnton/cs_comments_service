@@ -32,8 +32,12 @@ class ThreadPresenter
     h["endorsed"] = @is_endorsed || false
     if with_responses
       if @thread.thread_type.discussion? && resp_skip == 0 && resp_limit.nil?
-        content = Comment.where(comment_thread_id: @thread._id).order_by({"sk" => 1})
-        h["children"] = merge_response_content(content, recursive)
+        if recursive
+          content = Comment.where(comment_thread_id: @thread._id).order_by({"sk" => 1})
+        else
+          content = Comment.where(comment_thread_id: @thread._id, "parent_ids" => []).order_by({"sk" => 1})
+        end
+        h["children"] = merge_response_content(content)
         h["resp_total"] = content.to_a.select{|d| d.depth == 0 }.length
       else
         responses = Content.where(comment_thread_id: @thread._id).exists(parent_id: false)
@@ -75,31 +79,32 @@ class ThreadPresenter
   def get_paged_merged_responses(thread_id, responses, skip, limit, recursive=true)
     response_ids = responses.only(:_id).sort({"sk" => 1}).to_a.map{|doc| doc["_id"]}
     paged_response_ids = limit.nil? ? response_ids.drop(skip) : response_ids.drop(skip).take(limit)
-    content = Comment.where(comment_thread_id: thread_id).
-      or({:parent_id => {"$in" => paged_response_ids}}, {:id => {"$in" => paged_response_ids}}).
-      sort({"sk" => 1})
-    {"responses" => merge_response_content(content, recursive), "response_count" => response_ids.length}
+    if recursive
+      content = Comment.where(comment_thread_id: thread_id).
+        or({:parent_id => {"$in" => paged_response_ids}}, {:id => {"$in" => paged_response_ids}}).
+        sort({"sk" => 1})
+    else
+      content = Comment.where(comment_thread_id: thread_id, "parent_ids" => []).
+        where({:id => {"$in" => paged_response_ids}}).sort({"sk" => 1})
+    end
+    {"responses" => merge_response_content(content), "response_count" => response_ids.length}
   end
 
   # Takes content output from Mongoid in a depth-first traversal order and
   # returns an array of first-level response hashes with content represented
-  # hierarchically, with "children_count" as no. of comments to a response
-  # and a comment's list of children in the key "children" if recursive = true
-  def merge_response_content(content, recursive=true)
+  # hierarchically, with a comment's list of children in the key "children".
+  def merge_response_content(content)
     top_level = []
     ancestry = []
     content.each do |item|
-      item_hash = item.to_hash.merge({"children" => [], "children_count" => 0})
+      item_hash = item.to_hash.merge("children" => [])
       if item.parent_id.nil?
         top_level << item_hash
         ancestry = [item_hash]
       else
         while ancestry.length > 0 do
           if item.parent_id == ancestry.last["id"]
-            if recursive
-              ancestry.last["children"] << item_hash
-            end
-            ancestry.last["children_count"] += 1
+            ancestry.last["children"] << item_hash
             ancestry << item_hash
             break
           else

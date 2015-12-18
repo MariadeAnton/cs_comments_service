@@ -78,7 +78,7 @@ post "#{APIPREFIX}/threads/:thread_id/comments" do |thread_id|
   comment.anonymous_to_peers = bool_anonymous_to_peers || false
   comment.author = user
   comment.comment_thread = thread
-  comment.children_count = 0
+  comment.child_count = 0
   comment.save
   if comment.errors.any?
     error 400, comment.errors.full_messages.to_json

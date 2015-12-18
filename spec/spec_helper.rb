@@ -305,7 +305,7 @@ def check_comment(comment, hash, is_json, recursive=false)
   hash["endorsed"].should == comment.endorsed
   hash["endorsement"].should == comment.endorsement
   children = Comment.where({"parent_id" => comment.id}).sort({"sk" => 1}).to_a
-  hash["children_count"].should == children.length
+  hash["child_count"].should == children.length
   if recursive
     hash["children"].length.should == children.length
     hash["children"].each_with_index do |child_hash, i|

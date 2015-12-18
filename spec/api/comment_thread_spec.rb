@@ -682,7 +682,7 @@ describe "app" do
         comment = changed_thread.comments.select{|c| c["body"] == "new comment"}.first
         comment.should_not be_nil
         comment.author_id.should == user.id
-        retrieved["children_count"].should == 0
+        retrieved["child_count"].should == 0
       end
       it "allows anonymous comment" do
         thread = CommentThread.first
