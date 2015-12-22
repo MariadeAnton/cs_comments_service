@@ -1,3 +1,6 @@
+sudo: required
+group: legacy
+
 language: ruby
 rvm:
   - "1.9.3"
